@@ -33,6 +33,7 @@ from .const import (
     ATTR_API_DEW_POINT,
     ATTR_API_FEELS_LIKE_TEMPERATURE,
     ATTR_API_HUMIDITY,
+    ATTR_API_MINUTELY_PRECIPITATION,
     ATTR_API_PRECIPITATION_KIND,
     ATTR_API_PRESSURE,
     ATTR_API_RAIN,
@@ -152,6 +153,17 @@ WEATHER_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
+MINUTELY_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = tuple(
+    SensorEntityDescription(
+        key=f"{ATTR_API_MINUTELY_PRECIPITATION}-{str(i).zfill(2)}",
+        name=f"Precipitation T-{str(i).zfill(2)} minutes",
+        native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    )
+    for i in range(60)
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -179,6 +191,15 @@ async def async_setup_entry(
                 weather_coordinator,
             )
             for description in WEATHER_SENSOR_TYPES
+        )
+        async_add_entities(
+            MinutelySensorEntity(
+                name,
+                f"{config_entry.unique_id}",
+                description,
+                weather_coordinator,
+            )
+            for description in MINUTELY_SENSOR_TYPES
         )
 
 
@@ -245,3 +266,56 @@ class OpenWeatherMapSensor(AbstractOpenWeatherMapSensor):
         return self._weather_coordinator.data[ATTR_API_CURRENT].get(
             self.entity_description.key
         )
+
+
+class MinutelySensorEntity(SensorEntity):
+    """OpenWeatherMap Minutely forecast sensor."""
+
+    _attr_should_poll = False
+    _attr_attribution = ATTRIBUTION
+
+    def __init__(
+        self,
+        name: str,
+        unique_id: str,
+        description: SensorEntityDescription,
+        coordinator: WeatherUpdateCoordinator,
+    ) -> None:
+        """Initialize the sensor."""
+        self._attr_name = f"{name} {description.name}"
+        self._attr_unique_id = description.key
+        self.entity_description = description
+        self._coordinator = coordinator
+
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            identifiers={(DOMAIN, f"{unique_id}-minutely")},
+            manufacturer=MANUFACTURER,
+            name=DEFAULT_NAME,
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._coordinator.last_update_success
+
+    async def async_added_to_hass(self) -> None:
+        """Connect to dispatcher listening for entity data notifications."""
+        self.async_on_remove(
+            self._coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+    async def async_update(self) -> None:
+        """Get the latest data from OWM and updates the states."""
+        await self._coordinator.async_request_refresh()
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the state of the device."""
+        if self._attr_unique_id is not None:
+            t = self._attr_unique_id.replace(f"{ATTR_API_MINUTELY_PRECIPITATION}-", "")
+        else:
+            return 0
+        return self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][t][
+            "precipitation"
+        ]

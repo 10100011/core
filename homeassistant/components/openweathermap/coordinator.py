@@ -7,6 +7,7 @@ from pyopenweathermap import (
     CurrentWeather,
     DailyWeatherForecast,
     HourlyWeatherForecast,
+    MinutelyWeatherForecast,
     OWMClient,
     RequestError,
     WeatherReport,
@@ -31,6 +32,7 @@ from .const import (
     ATTR_API_FEELS_LIKE_TEMPERATURE,
     ATTR_API_HOURLY_FORECAST,
     ATTR_API_HUMIDITY,
+    ATTR_API_MINUTELY_PRECIPITATION,
     ATTR_API_PRECIPITATION_KIND,
     ATTR_API_PRESSURE,
     ATTR_API_RAIN,
@@ -91,9 +93,14 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
             if weather_report.current is not None
             else {}
         )
-
+        minutely_weather = (
+            self._get_minutely_weather_data(weather_report.minutely_forecast)
+            if weather_report.minutely_forecast is not None
+            else {}
+        )
         return {
             ATTR_API_CURRENT: current_weather,
+            ATTR_API_MINUTELY_PRECIPITATION: minutely_weather,
             ATTR_API_HOURLY_FORECAST: [
                 self._get_hourly_forecast_weather_data(item)
                 for item in weather_report.hourly_forecast
@@ -103,6 +110,15 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
                 for item in weather_report.daily_forecast
             ],
         }
+
+    def _get_minutely_weather_data(self, minutely: MinutelyWeatherForecast):
+        forecasts = {}
+        for t, item in enumerate(minutely):
+            forecasts[str(t).zfill(2)] = {
+                "date_time": item.date_time,
+                "precipitation": item.precipitation,
+            }
+        return forecasts
 
     def _get_current_weather_data(self, current_weather: CurrentWeather):
         return {
@@ -192,12 +208,13 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
     @staticmethod
     def _get_precipitation_value(precipitation):
         """Get precipitation value from weather data."""
-        if "all" in precipitation:
-            return round(precipitation["all"], 2)
-        if "3h" in precipitation:
-            return round(precipitation["3h"], 2)
-        if "1h" in precipitation:
-            return round(precipitation["1h"], 2)
+        if precipitation is not None:
+            if "all" in precipitation:
+                return round(precipitation["all"], 2)
+            if "3h" in precipitation:
+                return round(precipitation["3h"], 2)
+            if "1h" in precipitation:
+                return round(precipitation["1h"], 2)
         return 0
 
     def _get_condition(self, weather_code, timestamp=None):
