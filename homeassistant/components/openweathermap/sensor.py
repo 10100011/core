@@ -268,11 +268,8 @@ class OpenWeatherMapSensor(AbstractOpenWeatherMapSensor):
         )
 
 
-class MinutelySensorEntity(SensorEntity):
-    """OpenWeatherMap Minutely forecast sensor."""
-
-    _attr_should_poll = False
-    _attr_attribution = ATTRIBUTION
+class MinutelySensorEntity(AbstractOpenWeatherMapSensor):
+    """Minutely forecast implementation of an OpenWeatherMap sensor."""
 
     def __init__(
         self,
@@ -282,10 +279,7 @@ class MinutelySensorEntity(SensorEntity):
         coordinator: WeatherUpdateCoordinator,
     ) -> None:
         """Initialize the sensor."""
-        self._attr_name = f"{name} {description.name}"
-        self._attr_unique_id = description.key
-        self.entity_description = description
-        self._coordinator = coordinator
+        super().__init__(name, description.key, description, coordinator)
 
         self._attr_device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
@@ -293,21 +287,6 @@ class MinutelySensorEntity(SensorEntity):
             manufacturer=MANUFACTURER,
             name=DEFAULT_NAME,
         )
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self._coordinator.last_update_success
-
-    async def async_added_to_hass(self) -> None:
-        """Connect to dispatcher listening for entity data notifications."""
-        self.async_on_remove(
-            self._coordinator.async_add_listener(self.async_write_ha_state)
-        )
-
-    async def async_update(self) -> None:
-        """Get the latest data from OWM and updates the states."""
-        await self._coordinator.async_request_refresh()
 
     @property
     def native_value(self) -> StateType:
