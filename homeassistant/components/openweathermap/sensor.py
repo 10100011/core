@@ -156,7 +156,9 @@ WEATHER_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
 MINUTELY_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = tuple(
     SensorEntityDescription(
         key=f"{ATTR_API_MINUTELY_PRECIPITATION}-{str(i).zfill(2)}",
-        name=f"Precipitation T-{str(i).zfill(2)} minutes",
+        name=f"Precipitation {str(i).zfill(2)} minutes"
+        if i > 0
+        else f"Precipitation {str(i).zfill(1)} minutes",
         native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -295,6 +297,7 @@ class MinutelySensorEntity(AbstractOpenWeatherMapSensor):
             t = self._attr_unique_id.replace(f"{ATTR_API_MINUTELY_PRECIPITATION}-", "")
         else:
             return 0
-        return self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][t][
-            "precipitation"
-        ]
+        return round(
+            self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][t]["precipitation"],
+            2,
+        )
