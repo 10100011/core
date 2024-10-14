@@ -154,8 +154,6 @@ WEATHER_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
-# _LOGGER = logging.getLogger(__name__)
-
 MINUTELY_SENSOR_TYPE = SensorEntityDescription(
     key=ATTR_API_MINUTELY_PRECIPITATION,
     name=f"1{UnitOfTime.HOURS} precipitation",
@@ -286,7 +284,6 @@ class MinutelySensorEntity(AbstractOpenWeatherMapSensor):
     def native_value(self) -> StateType:
         """Return the state of the device."""
 
-        # _LOGGER.debug(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION])
         return round(
             max(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION].values()), 2
         )
