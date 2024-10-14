@@ -16,6 +16,7 @@ from homeassistant.const import (
     UnitOfPressure,
     UnitOfSpeed,
     UnitOfTemperature,
+    UnitOfTime,
     UnitOfVolumetricFlux,
 )
 from homeassistant.core import HomeAssistant
@@ -153,17 +154,14 @@ WEATHER_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
-MINUTELY_SENSOR_TYPES: tuple[SensorEntityDescription, ...] = tuple(
-    SensorEntityDescription(
-        key=f"{ATTR_API_MINUTELY_PRECIPITATION}-{str(i).zfill(2)}",
-        name=f"Precipitation {str(i).zfill(2)} minutes"
-        if i > 0
-        else f"Precipitation {str(i).zfill(1)} minutes",
-        native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
-        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
-        state_class=SensorStateClass.MEASUREMENT,
-    )
-    for i in range(60)
+# _LOGGER = logging.getLogger(__name__)
+
+MINUTELY_SENSOR_TYPE = SensorEntityDescription(
+    key=ATTR_API_MINUTELY_PRECIPITATION,
+    name=f"1{UnitOfTime.HOURS} precipitation",
+    native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+    device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+    state_class=SensorStateClass.MEASUREMENT,
 )
 
 
@@ -195,13 +193,14 @@ async def async_setup_entry(
             for description in WEATHER_SENSOR_TYPES
         )
         async_add_entities(
-            MinutelySensorEntity(
-                name,
-                f"{config_entry.unique_id}",
-                description,
-                weather_coordinator,
-            )
-            for description in MINUTELY_SENSOR_TYPES
+            [
+                MinutelySensorEntity(
+                    name,
+                    f"{config_entry.unique_id}-{MINUTELY_SENSOR_TYPE.key}",
+                    MINUTELY_SENSOR_TYPE,
+                    weather_coordinator,
+                )
+            ]
         )
 
 
@@ -281,23 +280,24 @@ class MinutelySensorEntity(AbstractOpenWeatherMapSensor):
         coordinator: WeatherUpdateCoordinator,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(name, description.key, description, coordinator)
-
-        self._attr_device_info = DeviceInfo(
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN, f"{unique_id}-minutely")},
-            manufacturer=MANUFACTURER,
-            name=DEFAULT_NAME,
-        )
+        super().__init__(name, unique_id, description, coordinator)
 
     @property
     def native_value(self) -> StateType:
         """Return the state of the device."""
-        if self._attr_unique_id is not None:
-            t = self._attr_unique_id.replace(f"{ATTR_API_MINUTELY_PRECIPITATION}-", "")
-        else:
-            return 0
+
+        # _LOGGER.debug(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION])
         return round(
-            self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][t]["precipitation"],
-            2,
+            max(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION].values()), 2
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Return Minutely forecasts as sensor attributes."""
+
+        forecasts = {}
+        for i in self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION]:
+            forecasts[
+                f"{i} {UnitOfTime.MINUTES} ({UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR})"
+            ] = self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][i]
+        return forecasts

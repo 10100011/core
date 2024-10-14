@@ -113,11 +113,8 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
 
     def _get_minutely_weather_data(self, minutely: MinutelyWeatherForecast):
         forecasts = {}
-        for t, item in enumerate(minutely):
-            forecasts[str(t).zfill(2)] = {
-                "date_time": item.date_time,
-                "precipitation": item.precipitation,
-            }
+        for i, item in enumerate(minutely):
+            forecasts[i] = item.precipitation
         return forecasts
 
     def _get_current_weather_data(self, current_weather: CurrentWeather):
