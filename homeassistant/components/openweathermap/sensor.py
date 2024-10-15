@@ -284,9 +284,7 @@ class MinutelySensorEntity(AbstractOpenWeatherMapSensor):
     def native_value(self) -> StateType:
         """Return the state of the device."""
 
-        return round(
-            max(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION].values()), 2
-        )
+        return f"{round(max(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION].values()), 2):.2f}"
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
@@ -296,5 +294,5 @@ class MinutelySensorEntity(AbstractOpenWeatherMapSensor):
         for i in self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION]:
             forecasts[
                 f"{i} {UnitOfTime.MINUTES} ({UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR})"
-            ] = self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][i]
+            ] = f"{round(self._coordinator.data[ATTR_API_MINUTELY_PRECIPITATION][i], 2):.2f}"
         return forecasts
